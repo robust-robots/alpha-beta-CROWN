@@ -79,19 +79,24 @@ def get_statistics(model, image, true_label, eps, data_min, data_max, batch_size
     batches = int(N/batch_size)
     num_class = arguments.Config["data"]["num_classes"]
     norm = np.inf
-    model = BoundedModule(model, torch.empty_like(image[:batch_size]), bound_opts={'optimize_bound_args': {'ob_verbose': 0, 'ob_init': True, 'ob_lr': 0.1}}, device='cuda')
+    # NO CUDA
+    #model = BoundedModule(model, torch.empty_like(image[:batch_size]), bound_opts={'optimize_bound_args': {'ob_verbose': 0, 'ob_init': True, 'ob_lr': 0.1}}, device='cuda')
+    model = BoundedModule(model, torch.empty_like(image[:batch_size]), bound_opts={'optimize_bound_args': {'ob_verbose': 0, 'ob_init': True, 'ob_lr': 0.1}})
     for batch_idx in range(batches):
         start_idx, end_idx = batch_idx*batch_size, batch_idx*batch_size+batch_size
         data, labels = image[start_idx:end_idx], torch.tensor(true_label[start_idx:end_idx])
         data_ub = torch.min(data + eps, data_max)
         data_lb = torch.max(data - eps, data_min)
-        data, data_lb, data_ub, labels = data.cuda(), data_lb.cuda(), data_ub.cuda(), labels.cuda()
+        # NO CUDA
+        #data, data_lb, data_ub, labels = data.cuda(), data_lb.cuda(), data_ub.cuda(), labels.cuda()
         ptb = PerturbationLpNorm(norm=norm, eps=None, x_L=data_lb, x_U=data_ub)
         data = BoundedTensor(data, ptb)
         # labels = torch.argmax(pred, dim=1).cpu().detach().numpy()
         c = torch.eye(num_class).type_as(data)[labels].unsqueeze(1) - torch.eye(num_class).type_as(data).unsqueeze(0)
         I = (~(labels.data.unsqueeze(1) == torch.arange(num_class).type_as(labels.data).unsqueeze(0)))
-        c = (c[I].view(data.size(0), num_class - 1, num_class)).cuda()
+        # NO CUDA
+        #c = (c[I].view(data.size(0), num_class - 1, num_class)).cuda()
+        c = (c[I].view(data.size(0), num_class - 1, num_class))
         if method == "CROWN":
             with torch.no_grad():
                 lb, ub = model.compute_bounds(x=(data,), method="CROWN", C=c, bound_upper=False)
@@ -196,7 +201,8 @@ def main():
     for new_idx, imag_idx in enumerate(bnb_ids):
         arguments.Config["bab"]["timeout"] = orig_timeout
         print('\n %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% idx:', new_idx, 'img ID:', imag_idx, '%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
-        torch.cuda.empty_cache()
+        # NO CUDA
+        #torch.cuda.empty_cache()
         gc.collect()
 
         x, y = X[imag_idx], int(labels[imag_idx].item())
@@ -381,7 +387,8 @@ def main():
                 ret.append([imag_idx, 0, 0, 0, new_idx, pidx, np.inf, np.inf])
                 continue
 
-            torch.cuda.empty_cache()
+            # NO CUDA
+            #torch.cuda.empty_cache()
             gc.collect()
 
             start_inner = time.time()
